@@ -1,0 +1,138 @@
+---
+title: "Carmax Analysis"
+output: html_document
+date: "2025-09-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
+library(RSelenium)
+library(wdman)
+library(netstat)
+library(plotly)
+library(lme4)
+library(bigrquery)
+#library(torch)
+# library(tensorflow)
+# reticulate::use_condaenv(condaenv = "R-Stuff",required = TRUE)
+# reticulate::use_python("C:/Users/Grum/anaconda3/envs/R-Stuff/python")
+# keras::use_condaenv("R-Stuff",required = T)
+#bq_auth()
+
+ggplot2::theme_set(theme_bw())
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+cars=bq_table_download("nas-autotrader-prd.cars.Carmax")
+suv_trims=bq_table_download("nas-autotrader-prd.cars.SUV_Trims")
+cars$year=as.factor(cars$year)
+```
+
+
+```{r}
+mean_price=mean(cars$)
+```
+
+
+
+```{r}
+unique((cars%>%subset(model=="Charger"))["trim"])
+
+```
+```{r}
+ggplotly(
+  ggplot(
+    cars%>%subset( 
+      make=="Ford" & model=="F150" 
+    ),
+    aes(x=mileage,y=price,colour = trim, shape=year>=2021)
+  )+
+    geom_point()+
+    stat_smooth(
+      method = "lm", formula = y~sqrt(x)+log(x),
+      se=FALSE,
+      linetype="dotted"
+    )
+    # stat_smooth(
+    #   method = "lm", formula = y~sqrt(x),
+    #   se=FALSE
+    #   
+    # )
+)
+```
+
+
+```{r}
+ggplotly(
+  ggplot(
+    cars%>%subset(make_model %in% c("Ford Mustang","Dodge Challenger","Dodge Charger", "Mercedes-Benz C63 AMG")),
+    aes(x=mileage,y=price,colour = make_model)
+  )+
+    geom_point()+
+    stat_smooth(
+      method = "lm", formula = y~sqrt(x),
+      se=FALSE
+    )
+)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+lm(price~+log(mileage),
+         data=cars
+)%>%AIC()
+
+
+model=lmer(
+  price~sqrt(mileage)+make+year+(sqrt(mileage)|model)+(sqrt(mileage)|trim)+(year|model),
+  data=cars
+)
+AIC(model)
+coef(model)
+
+```
+
+```{r}
+x=coef(model)
+x$make_model
+x1=x$trim
+x1%>%arrange(`sqrt(mileage)`)
+```
+
+
+
+
+
+
+```{r}
+simple_cars=unique(cars%>%select(make,model,trim,make_model,year))%>%mutate(mileage=60000)
+simple_cars$predictions=predict(model,newdata=simple_cars)
+simple_cars=simple_cars%>%arrange(make,model)
+```
+
+```{r}
+grid=data.frame(mileage=seq(0,100000,by=1000))
+suv_trims_predict=suv_trims%>%select(car_full,car,make_model,trim,year)%>%cross_join(grid)
+suv_trims_predict$price=predict(model,newdata=suv_trims_predict)
+```
+
+```{r}
+ggplotly(
+  ggplot(
+    suv_trims_predict,
+    aes(x=mileage,y=price,color=car)
+  )+
+    geom_line()
+)
+```
+
+
+

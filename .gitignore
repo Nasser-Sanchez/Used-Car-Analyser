@@ -1,0 +1,27 @@
+# R data caches
+.RData
+.rdata
+.Rhistory
+*Rhistory
+
+# Large CSV files (store in Git LFS or skip for now)
+carmax_USA.csv
+
+# Compiled R files
+*.rdb
+*.rds
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
