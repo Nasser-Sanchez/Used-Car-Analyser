@@ -56,7 +56,7 @@ weight in kg,
 fuel_type is petrol, diesel, hybrid, electric,
 fuel economy is mpg or mpg equivalent in US mpg,
 quality rating is a numeric score from 1-100 with 1 being poor and 100 being the epitome of luxury,
-reliability rating is how reliable the car is on a scale from 1-100 with 1 being terrible and 100 being almost bulletproof
+reliability rating is how reliable the car is on a scale from 1-100 with 1 being terrible and 100 being almost bulletproof and will last 1m miles with just routine maintenance
         """
         # {'horsepower': ..., 'torque': ...,'accel': ..., 'fuel_type': ..., 'fuel_economy':...,
         #         'transmission': ..., 'quality_rating': ..., 'reliability_rating':...}
@@ -206,9 +206,9 @@ else:
         df_errors.to_csv("carmax_errors.csv", index=False)
         print(f"Errors saved to carmax_errors.csv ({len(df_errors)} records)")
 
-# Step 6: Optional - Join back to original data
+# Step 6: Join back to original data
 print("\n" + "=" * 80)
-print("OPTIONAL: JOIN RESULTS BACK TO ORIGINAL DATA")
+print("JOIN RESULTS BACK TO ORIGINAL DATA")
 print("=" * 80)
 
 try:
