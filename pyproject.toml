@@ -1,0 +1,22 @@
+[project]
+name = "used-car-analyser"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Nasser-Sanchez", email = "jameel02@live.co.uk" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "google-cloud-bigquery>=3.43.0",
+    "lmstudio>=1.5.0",
+    "pandas>=3.0.5",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+used-car-analyser = "used_car_analyser:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
