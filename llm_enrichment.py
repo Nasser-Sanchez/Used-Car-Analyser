@@ -6,6 +6,20 @@ import json
 import time
 import requests
 import re
+import os
+
+output_csv = "carmax_specifications.csv"
+error_csv = "carmax_errors.csv"
+# Create Output File if it doesn't exist
+if not os.path.exists(output_csv):
+    print(f"Creating {output_csv}...")
+    # Create empty dataframe with headers to ensure the file exists
+    pd.DataFrame(columns=columns).to_csv(output_csv, index=False)
+
+# Create Error File if it doesn't exist
+if not os.path.exists(error_csv):
+    print(f"Creating {error_csv}...")
+    pd.DataFrame(columns=["car_name", "error_message"]).to_csv(error_csv, index=False)
 
 delay_seconds=2
 
@@ -70,21 +84,22 @@ def send_llm_request(prompt):
         "messages": [
             {"role": "system", "content": """You are a car specification assistant. Return ONLY JSON with the fields: horsepower, torque,
              engine displacement, cylinders acceleration (0-60mph), quarter mile time, quarter mile trap speed, weight, fuel_type,
-             quality rating, reliability rating. Do not include explanations. Return in a CSV format like this:
-             {
-            "horsepower": None,
-            "torque": None,
-            "displacement": None,
-            "cylinders": None,
-            "accel": None,
-            "qmile_time": None,
-            "qmile_speed": None,
-            "fuel_type": None,
-            "fuel_economy": None,
-            "quality_rating": None,
-            "reliability_rating": None
+             quality rating, reliability rating. Do not include explanations. Return only the JSON in format like this:
+            {
+                "horsepower": 469,
+                "torque": 516,
+                "displacement": 4.0,
+                "cylinders": 8,
+                "top_speed": 155,
+                "accel": 4.4,
+                "qmile_time": 12.8,
+                "qmile_speed": 112,
+                "fuel_type": "petrol",
+                "fuel_economy": 20,
+                "quality_rating": 92,
+                "reliability_rating": 55
             }
-            replace 'None' with the actual value
+            this is a 2020 Mercedes S560 as the example, replace values with the actual value
              """},
             {"role": "user", "content": prompt}
         ]
@@ -110,6 +125,7 @@ def parse_llm_response(response):
             "torque": None,
             "displacement": None,
             "cylinders": None,
+            "top_speed": None,
             "accel": None,
             "qmile_time": None,
             "qmile_speed": None,
