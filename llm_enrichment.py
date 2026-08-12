@@ -42,7 +42,7 @@ else:
 
 # Step 3: Define LLM request helper functions
 def create_llm_prompt(row):
-    prompt = f"""You are a car database expert. Provide specifications for the following vehicle:\n
+    prompt = f""" Provide specifications for the following vehicle:\n
         Year: {row['year']}\n
         Make: {row['make']}\n
         Model: {row['model']}\n
@@ -56,7 +56,8 @@ weight in kg,
 fuel_type is petrol, diesel, hybrid, electric,
 fuel economy is mpg or mpg equivalent in US mpg,
 quality rating is a numeric score from 1-100 with 1 being poor and 100 being the epitome of luxury,
-reliability rating is how reliable the car is on a scale from 1-100 with 1 being terrible and 100 being almost bulletproof and will last 1m miles with just routine maintenance
+reliability rating is how reliable the car is on a scale from 1-100 with 1 being terrible and 100 being almost bulletproof and will last 1m miles with just routine maintenance.
+For reference a 2020 Mercedes S560 has a quality rating of 92 and a reliability rating of 55, and a 2004 Toyota Prius has quality 58 and reliability 92.
         """
         # {'horsepower': ..., 'torque': ...,'accel': ..., 'fuel_type': ..., 'fuel_economy':...,
         #         'transmission': ..., 'quality_rating': ..., 'reliability_rating':...}
