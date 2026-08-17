@@ -1,19 +1,39 @@
 import lmstudio as lms
 from google.cloud import bigquery
 import pandas as pd
-import pandas as pd
 import json
 import time
 import requests
 import re
 import os
+import csv
+import numpy as np
+from pydantic import BaseModel, Field
 
 output_csv = "carmax_specifications.csv"
 error_csv = "carmax_errors.csv"
-# Create Output File if it doesn't exist
+
+telemetry_csv = "carmax_telemetry.csv"
+
+# Define columns explicitly to avoid undefined variable errors
+columns = [
+    'year', 'make', 'model', 'trim',
+    'horsepower', 'torque', 'displacement', 'cylinders',
+    'top_speed','accel', 'qmile_time', 'qmile_speed',
+    'weight', 'fuel_type', 'fuel_economy',
+    'quality_rating', 'reliability_rating'
+]
+
+telemetry_columns=[
+    'model_name', 'model_parameters', 'input_tokens', 'output_tokens', 
+    #'json_output_tokens', 'non_json_output_tokens', 
+    'time_to_first_token_secs',
+    'tokens_per_second'
+]
+
+# Create files if they don't exist
 if not os.path.exists(output_csv):
     print(f"Creating {output_csv}...")
-    # Create empty dataframe with headers to ensure the file exists
     pd.DataFrame(columns=columns).to_csv(output_csv, index=False)
 
 # Create Error File if it doesn't exist
@@ -21,11 +41,40 @@ if not os.path.exists(error_csv):
     print(f"Creating {error_csv}...")
     pd.DataFrame(columns=["car_name", "error_message"]).to_csv(error_csv, index=False)
 
-delay_seconds=2
+if not os.path.exists(telemetry_csv):
+    print(f"Creating {telemetry_csv}...")
+    pd.DataFrame(columns=telemetry_columns).to_csv(telemetry_csv, index=False)
 
-client = bigquery.Client()
 
-SERVER_API_HOST= "localhost:1234"
+# read car data
+print("Reading Carmax data...\n")
+
+df_original = pd.read_csv("carmax_USA.csv")
+
+df_original = df_original.fillna('')
+
+df = df_original[['year', 'make', 'model', 'trim']].drop_duplicates()
+
+df.head()
+
+# LM Studio connection
+
+class CarSpec(BaseModel):
+    horsepower: int
+    torque: int
+    displacement: float
+    cylinders: int
+    top_speed: int
+    accel: float = Field(description="0-60 mph acceleration in seconds")
+    qmile_time: float = Field(description="Quarter mile time in seconds")
+    qmile_speed: int = Field(description="Quarter mile trap speed in mph")
+    weight: int = Field(description="Weight in kg")    
+    fuel_type: str
+    fuel_economy: int
+    quality_rating: int
+    reliability_rating: int
+
+SERVER_API_HOST = "localhost:1234"
 lms.configure_default_client(SERVER_API_HOST)
 
 if lms.Client.is_valid_api_host(SERVER_API_HOST):
@@ -33,222 +82,169 @@ if lms.Client.is_valid_api_host(SERVER_API_HOST):
 else:
     print("No LM Studio API server instance found at {SERVER_API_HOST}")
 
-llm_model=lms.llm()
+llm_model = lms.llm()
 
 
-# Step 1: Load original CSV
-print(f"\nReading carmax_USA.csv...")
-original_df = pd.read_csv("carmax_USA.csv")
-print(f"Loaded {len(original_df)} rows with columns: {original_df.columns.tolist()}")
+# check for already processed records
+processed_data = set()
+existing_data = pd.read_csv(output_csv)
+processed_data=set(zip(
+    existing_data['year'].astype(str),
+    existing_data['make'].astype(str),
+    existing_data['model'].astype(str),
+    existing_data['trim'].astype(str)
+))
 
-# Step 2: Create unique (year, make, model, trim) combinations
-print("\nCreating unique year/make/model/trim combinations...")
-columns_to_check = ['year', 'make', 'model', 'trim']
-missing_cols = set(columns_to_check) - set(original_df.columns)
-if missing_cols:
-    print(f"Warning: Missing columns {missing_cols}. Using first 4 columns from data.")
-    df_subset = original_df.iloc[:, :4].copy()
-    unique_combinations = df_subset.drop_duplicates().to_dict(orient='records')
-else:
-    unique_df = original_df[[*columns_to_check]].drop_duplicates()
-    print(f"Found {len(unique_df)} unique year/make/model/trim combinations")
-    unique_combinations = unique_df.to_dict(orient='records')
+print(f"Found {len(processed_data)} already processed records\n")
 
-# Step 3: Define LLM request helper functions
+keys = pd.Series(
+    zip(
+        df['year'].astype(str),
+        df['make'].astype(str),
+        df['model'].astype(str),
+        df['trim'].astype(str),
+    ),
+    index=df.index,
+)
+cars_to_process = df[~keys.isin(processed_data)]
+
+
+print(f"Total unique combinations: {len(df)}")
+print(f"Already processed: {len(processed_data)}")
+print(f"Remaining to process: {len(cars_to_process)}")
+
+
+# Step 3: Define LLM request functions
+
+system_prompt = """You are a car specification assistant. Return ONLY JSON with the fields: horsepower, torque,
+    engine displacement, cylinders acceleration (0-60mph), quarter mile time, quarter mile trap speed, weight, fuel_type,
+    fuel economy, quality rating, reliability rating. Do not include explanations or any thought process in the JSON. Return only the JSON in format like this:
+    {
+        "horsepower": 469,
+        "torque": 516,
+        "displacement": 4.0,
+        "cylinders": 8,
+        "top_speed": 155,
+        "accel": 4.4,
+        "qmile_time": 12.8,
+        "qmile_speed": 112,
+        "weight": 2200,
+        "fuel_type": "petrol",
+        "fuel_economy": 20,
+        "quality_rating": 92,
+        "reliability_rating": 55
+    }
+    this is a 2020 Mercedes S560 as the example, replace values with the actual value"""
+
+
 def create_llm_prompt(row):
-    prompt = f""" Provide specifications for the following vehicle:\n
-        Year: {row['year']}\n
-        Make: {row['make']}\n
-        Model: {row['model']}\n
-        Trim: {row['trim']}\n\n
-        Please return ONLY valid JSON with these exact fields:\n
-        
+    print(f"Creating prompt for {row['year']} {row['make']} {row['model']} {row['trim']}...\n\n\n")
+    return f"""Provide specifications for the following vehicle:
+Year: {row['year']}
+Make: {row['make']}
+Model: {row['model']}
+Trim: {row['trim']}
 
-horsepower to be given in imperial BHP, not PS, torque is lb-ft, engine displacement is in litres, cylinders is num of cylinders in the engine,
-accel is 0-60mph seconds, quarter mile time is in seconds, quarter mile trap speed mph,
-weight in kg,
-fuel_type is petrol, diesel, hybrid, electric,
-fuel economy is mpg or mpg equivalent in US mpg,
-quality rating is a numeric score from 1-100 with 1 being poor and 100 being the epitome of luxury,
-reliability rating is how reliable the car is on a scale from 1-100 with 1 being terrible and 100 being almost bulletproof and will last 1m miles with just routine maintenance.
-For reference a 2020 Mercedes S560 has a quality rating of 92 and a reliability rating of 55, and a 2004 Toyota Prius has quality 58 and reliability 92.
-        """
-        # {'horsepower': ..., 'torque': ...,'accel': ..., 'fuel_type': ..., 'fuel_economy':...,
-        #         'transmission': ..., 'quality_rating': ..., 'reliability_rating':...}
-    
+Guidelines:
+- Horsepower in imperial BHP, torque in lb-ft, displacement in litres.
+- Acceleration (0-60mph) and quarter-mile time in seconds.
+- Weight in kg.
+- fuel types: electric, petrol, diesel, hybrid
+- Quality score (1-100) with 1 being poor and 100 being perfect refined luxury (eg Rolls Royce, private jet), 
+factor in material usage, sound deadening, build quality etc.
+- Reliability score (1-100) with 1 being the most unreliable and 100 being able to reach 1m miles with very little maintenance.
+For reference a 2020 Mercedes S560 has a quality rating of 92 and a reliability rating of 55, and a 2004 Toyota Prius has quality 40 and reliability 92.
+
+"""
     return prompt
 
-def send_llm_request(prompt):
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": """You are a car specification assistant. Return ONLY JSON with the fields: horsepower, torque,
-             engine displacement, cylinders acceleration (0-60mph), quarter mile time, quarter mile trap speed, weight, fuel_type,
-             quality rating, reliability rating. Do not include explanations. Return only the JSON in format like this:
-            {
-                "horsepower": 469,
-                "torque": 516,
-                "displacement": 4.0,
-                "cylinders": 8,
-                "top_speed": 155,
-                "accel": 4.4,
-                "qmile_time": 12.8,
-                "qmile_speed": 112,
-                "fuel_type": "petrol",
-                "fuel_economy": 20,
-                "quality_rating": 92,
-                "reliability_rating": 55
-            }
-            this is a 2020 Mercedes S560 as the example, replace values with the actual value
-             """},
-            {"role": "user", "content": prompt}
-        ]
+def send_llm_request(user_prompt):
+    chat = lms.Chat(system_prompt)
+    chat.add_user_message(user_prompt)
+
+    response = llm_model.respond(
+        chat,
+        response_format = CarSpec
+    )
+    return response
+
+
+def extract_json_block(text: str) -> str:
+    #Find the last json object in the text
+    end_idx = text.rfind("}")
+    
+    if end_idx == -1:
+        return text.strip()  # No closing brace found
+        
+    # Search backwards from end_idx to find the matching opening brace
+    # We use rfind, but we only search the portion of the string up to end_idx
+    start_idx = text.rfind("{", 0, end_idx)
+    
+    if start_idx != -1:
+        # Extract everything from the last '{' before the last '}'
+        json_str = text[start_idx : end_idx + 1]
+        return json_str.strip()
+        
+    return text.strip()
+def parse_llm_response(raw_response, row_df):
+    print("Parsing data...")
+    content_str = raw_response.content if hasattr(raw_response, "content") else str(raw_response)
+
+    cleaned_json_str = extract_json_block(content_str)
+    print(cleaned_json_str)
+    # parse llm response with pydantic using the provided format
+    parsed_data = CarSpec.model_validate_json(cleaned_json_str)
+    
+    # Now .model_dump() and .model_dump_json() work as expected:
+    data_dict = parsed_data.model_dump()
+    
+    combined_dict = {**row_df.to_dict(), **data_dict}
+    combined_row_df = pd.DataFrame([combined_dict])
+    print(combined_row_df)
+    return combined_row_df
+
+
+def append_to_csv(appending_row):
+    print(f"Appending data to {output_csv}...")
+    file_exists = os.path.exists(output_csv) and os.path.getsize(output_csv) > 0
+
+    ordered_data=appending_row.reindex(columns=columns)
+    ordered_data.to_csv(
+    output_csv,
+    mode="a",
+    header=not file_exists,  # Only writes header if the file is new/empty
+    index=False
+)
+    print(f"Operation Complete!\n\n\n")
+
+    
+def extract_llm_telemetry(response):
+    file_exists = os.path.exists(telemetry_csv) and os.path.getsize(telemetry_csv) > 0
+    
+    row_data = {
+        'model_name': response.model_info.display_name,
+        'model_parameters': response.model_info.params_string,
+        'input_tokens': int(response.stats.prompt_tokens_count),
+        'output_tokens': int(response.stats.predicted_tokens_count),
+        'time_to_first_token_secs': int(response.stats.time_to_first_token_sec),
+        'tokens_per_second': int(response.stats.tokens_per_second)
     }
-    response = requests.post(LM_STUDIO_API_URL, json=payload)
-    if response.status_code != 200:
-        raise Exception(f"API Error: {response.status_code} - {response.text}")
-    return response.json()
-
-def parse_llm_response(response):
-    content = response.get('choices', [{}])[0].get('message', {}).get('content', '')
-    try:
-        specs = json.loads(content)
-        return specs
-    except json.JSONDecodeError:
-        print("Raw response:", content[:500])
-        import re
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
-        spec_dict = {
-            "horsepower": None,
-            "torque": None,
-            "displacement": None,
-            "cylinders": None,
-            "top_speed": None,
-            "accel": None,
-            "qmile_time": None,
-            "qmile_speed": None,
-            "fuel_type": None,
-            "fuel_economy": None,
-            "quality_rating": None,
-            "reliability_rating": None
-        }
-        for field in ["horsepower", "torque", "displacement", "cylinders", "accel", "qmile_time", "qmile_speed",  "fuel_type", "fuel_economy", "quality_rating", "reliability_rating"]: # fix this
-            pattern = rf"{field}[:\s]*(.+?)(?:\n|$)"
-            match = re.search(pattern, content)
-            if match:
-                spec_dict[field] = match.group(1).strip()
-        return spec_dict
-
-# Step 4: Process cars in batches
-print(f"\nStarting processing of {len(unique_combinations)} records...")
-print(f"Batch size: 10, Delay between batches: {delay_seconds}s")
-print("-" * 80)
-
-processed_specs = []
-all_errors = []
-processed_count = 0
-
-for row in unique_combinations:
-    print(row)
-x=1
-for row in unique_combinations:
-    print(x)
-    x=x+1
-    year = row.get('year', '')
-    make = row.get('make', '')
-    model = row.get('model', '')
-    trim = row.get('trim', '')
     
-    prompt = create_llm_prompt(row)
-    
-    try:
-        response = llm_model.respond(prompt)
-        #specs = parse_llm_response(response)
-        print(response)
-        entry = {
-            'year': year,
-            'make': make,
-            'model': model,
-            'trim': trim,
-            **response
-        }
-        print(entry)
-        processed_specs.append(entry)
-        processed_count += 1
-        
-        # if i % 25 == 0 or (i == len(unique_combinations) and processed_count > 0):
-        #     print(f"Progress: {processed_count}/{len(unique_combinations)}")
-            
-    except Exception as e:
-        error_entry = {
-            'year': year,
-            'make': make,
-            'model': model,
-            'trim': trim,
-            'error': str(e),
-            'specs': None
-        }
-        all_errors.append(error_entry)
-        
-        if "rate" in str(e).lower():
-            print(f"Rate limit detected. Waiting {delay_seconds} seconds...")
-            time.sleep(delay_seconds)
-    
-    # Add delay between requests to avoid rate limiting
-    # if i % 10 == 0 and i < len(unique_combinations):
-    #     time.sleep(delay_seconds)
+    # 2. Initialize the DataFrame with the row data
+    df = pd.DataFrame([row_data], columns=telemetry_columns)
 
-# Step 5: Save processed specifications to CSV
-print("\n" + "-" * 80)
-print("Saving specifications...")
-if processed_specs:
-    output_df = pd.DataFrame(processed_specs)
-    print(f"Saved {len(output_df)} records")
-    
-    # Ensure proper data types
-    numeric_cols = ['horsepower', 'torque','displacement', 'accel', 'qmile_time', 'qmile_speed' 'reliability_rating','safety_rating']
-    for col in numeric_cols:
-        if col in output_df.columns:
-            output_df[col] = pd.to_numeric(output_df[col], errors='coerce')
-    
-    output_file = "carmax_specifications.csv"
-    output_df.to_csv(output_file, index=False)
-    print(f"Specifications saved to {output_file}")
-else:
-    print("No specs were successfully retrieved. Saving error log only.")
-    if all_errors:
-        df_errors = pd.DataFrame(all_errors)
-        df_errors.to_csv("carmax_errors.csv", index=False)
-        print(f"Errors saved to carmax_errors.csv ({len(df_errors)} records)")
+    print(f"Appending telemetry data to {telemetry_csv}...\n")
+    print(df)
+    df.to_csv(
+        telemetry_csv,
+        mode="a",
+        header=not file_exists,  
+        index=False
+    )
 
-# Step 6: Join back to original data
-print("\n" + "=" * 80)
-print("JOIN RESULTS BACK TO ORIGINAL DATA")
-print("=" * 80)
-
-try:
-    if processed_specs:
-        df_joined = pd.merge(
-            original_df, 
-            output_df, 
-            on=['year', 'make', 'model', 'trim'], 
-            how='inner'
-        )
-        
-        joined_file = "carmax_USA_enriched.csv"
-        df_joined.to_csv(joined_file, index=False)
-        print(f"\nJoined dataset saved to {joined_file}")
-        print(f"Original rows: {len(original_df)}, Joined rows: {len(df_joined)}")
-except Exception as e:
-    print(f"Join operation failed: {e}")
-    if all_errors:
-        df_errors = pd.DataFrame(all_errors)
-        df_errors.to_csv("carmax_errors.csv", index=False)
-        print(f"Errors saved to carmax_errors.csv ({len(df_errors)} records)")
-
-print("\n" + "=" * 80)
-print("PROCESSING COMPLETE!")
-print("=" * 80)
-
+for index, row in cars_to_process.iterrows():
+    prompt=create_llm_prompt(row)
+    response=send_llm_request(prompt)
+    extract_llm_telemetry(response)
+    parsed_data=parse_llm_response(response, row)
+    append_to_csv(parsed_data)
