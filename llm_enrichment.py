@@ -51,11 +51,10 @@ print("Reading Carmax data...\n")
 
 df_original = pd.read_csv("carmax_USA.csv")
 
-df_original = df_original.fillna('')
 
-df = df_original[['year', 'make', 'model', 'trim']].drop_duplicates()
 
-df.head()
+df = df_original[['year', 'make', 'model', 'trim']]
+df = df.drop_duplicates()
 
 # LM Studio connection
 
@@ -108,7 +107,13 @@ keys = pd.Series(
 )
 cars_to_process = df[~keys.isin(processed_data)]
 
-
+cars_to_process.to_csv(
+    "test.csv",
+    mode="w",
+    header=True,  # Only writes header if the file is new/empty
+    index=False
+)
+print(cars_to_process)
 print(f"Total unique combinations: {len(df)}")
 print(f"Already processed: {len(processed_data)}")
 print(f"Remaining to process: {len(cars_to_process)}")
@@ -241,6 +246,10 @@ def extract_llm_telemetry(response):
         header=not file_exists,  
         index=False
     )
+
+
+
+
 
 for index, row in cars_to_process.iterrows():
     prompt=create_llm_prompt(row)
