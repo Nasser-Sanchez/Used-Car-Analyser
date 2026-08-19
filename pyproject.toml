@@ -8,9 +8,13 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "duckduckgo-search>=8.1.1",
     "google-cloud-bigquery>=3.43.0",
+    "jupyter>=1.1.1",
+    "lab>=8.10",
     "lmstudio>=1.5.0",
     "pandas>=3.0.5",
+    "pydantic>=2.13.4",
     "requests>=2.34.2",
 ]
 
