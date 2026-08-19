@@ -18,7 +18,7 @@ enriched_csv = "carmax_enriched.csv"
 
 # Define columns explicitly to avoid undefined variable errors
 columns = [
-    'year', 'make', 'model', 'trim',
+    'year', 'make', 'model', 'trim', 'car_id',
     'horsepower', 'torque', 'displacement', 'cylinders',
     'top_speed','accel', 'qmile_time', 'qmile_speed',
     'weight', 'fuel_type', 'fuel_economy',
@@ -79,7 +79,7 @@ print("Reading Carmax data...\n")
 if os.path.exists(enriched_csv):
     df = pd.read_csv(enriched_csv)
     df = df.dropna(subset=['horsepower'])
-    df = df[['year', 'make', 'model', 'trim']]
+    df = df[['year', 'make', 'model', 'trim', 'car_id']]
     cars_to_process = df.drop_duplicates()
 
 else:
@@ -88,7 +88,7 @@ else:
 
 
 
-    df = df_original[['year', 'make', 'model', 'trim']]
+    df = df_original[['year', 'make', 'model', 'trim', 'car_id']]
     df = df.drop_duplicates()
 
     # check for already processed records
