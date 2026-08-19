@@ -14,6 +14,7 @@ output_csv = "carmax_specifications.csv"
 error_csv = "carmax_errors.csv"
 
 telemetry_csv = "carmax_telemetry.csv"
+enriched_csv = "carmax_enriched.csv"
 
 # Define columns explicitly to avoid undefined variable errors
 columns = [
@@ -46,15 +47,6 @@ if not os.path.exists(telemetry_csv):
     pd.DataFrame(columns=telemetry_columns).to_csv(telemetry_csv, index=False)
 
 
-# read car data
-print("Reading Carmax data...\n")
-
-df_original = pd.read_csv("carmax_USA.csv")
-
-
-
-df = df_original[['year', 'make', 'model', 'trim']]
-df = df.drop_duplicates()
 
 # LM Studio connection
 
@@ -83,29 +75,44 @@ else:
 
 llm_model = lms.llm()
 
+print("Reading Carmax data...\n")
+if os.path.exists(enriched_csv):
+    df = pd.read_csv(enriched_csv)
+    df = df.dropna(subset=['horsepower'])
+    df = df[['year', 'make', 'model', 'trim']]
+    cars_to_process = df.drop_duplicates()
 
-# check for already processed records
-processed_data = set()
-existing_data = pd.read_csv(output_csv)
-processed_data=set(zip(
-    existing_data['year'].astype(str),
-    existing_data['make'].astype(str),
-    existing_data['model'].astype(str),
-    existing_data['trim'].astype(str)
-))
+else:
 
-print(f"Found {len(processed_data)} already processed records\n")
+    df_original = pd.read_csv("carmax_USA.csv")
 
-keys = pd.Series(
-    zip(
-        df['year'].astype(str),
-        df['make'].astype(str),
-        df['model'].astype(str),
-        df['trim'].astype(str),
-    ),
-    index=df.index,
-)
-cars_to_process = df[~keys.isin(processed_data)]
+
+
+    df = df_original[['year', 'make', 'model', 'trim']]
+    df = df.drop_duplicates()
+
+    # check for already processed records
+    processed_data = set()
+    existing_data = pd.read_csv(output_csv)
+    processed_data=set(zip(
+        existing_data['year'].astype(str),
+        existing_data['make'].astype(str),
+        existing_data['model'].astype(str),
+        existing_data['trim'].astype(str)
+    ))
+
+    print(f"Found {len(processed_data)} already processed records\n")
+
+    keys = pd.Series(
+        zip(
+            df['year'].astype(str),
+            df['make'].astype(str),
+            df['model'].astype(str),
+            df['trim'].astype(str),
+        ),
+        index=df.index,
+    )
+    cars_to_process = df[~keys.isin(processed_data)]
 
 cars_to_process.to_csv(
     "test.csv",
