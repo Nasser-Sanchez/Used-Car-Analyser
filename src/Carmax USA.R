@@ -185,21 +185,8 @@ cars=data.frame(
 #   )
 # ))
 
-#write.csv(cars,file="carmax_USA.csv")
+write.csv(cars,file="carmax_USA.csv")
 
-ds=bq_dataset("nas-autotrader-prd","cars")
-#bq_table_delete("nas-autotrader-prd.cars.Cars_Test")
-#bq_cars=bq_table(ds,"SUV_Trims")
-# bq_table_create(
-#   bq_cars,
-#   fields=cars,
-#   friendly_name="Carmax",
-#   description="Autotrader Car Data"
-# )
-
-#bq_table_upload(bq_cars,cars)
-#bq_table_delete("nas-autotrader-prd.cars.Carmax")
-bq_table_upload(bq_cars,cars, create_disposition="CREATE_IF_NEEDED", write_disposition="WRITE_APPEND")
 
 
 
