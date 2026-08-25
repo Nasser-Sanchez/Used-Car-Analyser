@@ -118,12 +118,11 @@ Outputs:
 | File | Description | In Git? |
 |------|-------------|---------|
 | `data/carmax_USA.csv` | Vehicle listings dataset | ✅ (tracked) |
-| `carmax_errors.csv` | Enrichment errors | ✅ (tracked) |
 | `data/carmax_specifications.csv` | Enriched specs | ❌ (large) |
 | `data/carmax_telemetry.csv` | Model call logs | ❌ (large) |
 | `data/carmax_usa_enriched.csv` | Final merged dataset | ❌ (large) |
 
-Large CSV files are excluded from git. Re-run the enrichment pipeline to regenerate.
+Large CSV files are excluded from git. Run the enrichment pipeline to regenerate.
 
 ## Notes
 
