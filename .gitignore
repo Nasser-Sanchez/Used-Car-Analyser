@@ -34,3 +34,6 @@ Thumbs.db
 .venv/
 __pycache__/
 *.pyc
+
+# Jupyter
+.ipynb_checkpoints/
