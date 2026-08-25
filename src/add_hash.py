@@ -8,7 +8,7 @@ import os
 import csv
 
 df = pd.read_csv("carmax_USA.csv")
-
+df.to_csv('carmax_USA copy.csv', index=False)
 # 2. Create a consistent string key (lowercase to avoid case-sensitivity issues)
 df['car_key'] = (df['year'].astype(str) + '-' + 
                  df['make'].str.lower() + '-' + 

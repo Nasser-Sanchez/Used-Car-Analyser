@@ -10,11 +10,10 @@ import csv
 import numpy as np
 from pydantic import BaseModel, Field
 
-output_csv = "carmax_specifications.csv"
-error_csv = "carmax_errors.csv"
+output_csv = "data/carmax_specifications.csv"
 
-telemetry_csv = "carmax_telemetry.csv"
-enriched_csv = "carmax_enriched.csv"
+telemetry_csv = "data/carmax_telemetry.csv"
+enriched_csv = "data/carmax_enriched.csv"
 
 # Define columns explicitly to avoid undefined variable errors
 columns = [
@@ -37,10 +36,6 @@ if not os.path.exists(output_csv):
     print(f"Creating {output_csv}...")
     pd.DataFrame(columns=columns).to_csv(output_csv, index=False)
 
-# Create Error File if it doesn't exist
-if not os.path.exists(error_csv):
-    print(f"Creating {error_csv}...")
-    pd.DataFrame(columns=["car_name", "error_message"]).to_csv(error_csv, index=False)
 
 if not os.path.exists(telemetry_csv):
     print(f"Creating {telemetry_csv}...")
@@ -85,7 +80,7 @@ if os.path.exists(enriched_csv):
 
 else:
 
-    df_original = pd.read_csv("carmax_USA.csv")
+    df_original = pd.read_csv("data/carmax_USA.csv")
 
 
 

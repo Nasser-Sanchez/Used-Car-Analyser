@@ -5,9 +5,6 @@
 *Rhistory
 
 
-# CSV files (exclude only carmax_USA.csv)
-*.csv
-!carmax_USA.csv
 
 # Compiled R files
 *.rdb
@@ -29,8 +26,3 @@ Thumbs.db
 *.temp
 .Rproj.user
 .positai
-
-# Python
-.venv/
-__pycache__/
-*.pyc

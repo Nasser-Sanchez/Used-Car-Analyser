@@ -16,6 +16,9 @@ dependencies = [
     "pandas>=3.0.5",
     "pydantic>=2.13.4",
     "requests>=2.34.2",
+    "seaborn>=0.13.2",
+    "shap>=0.51.0",
+    "statsmodels>=0.14.6",
 ]
 
 [project.scripts]
