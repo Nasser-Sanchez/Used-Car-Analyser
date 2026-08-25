@@ -8,7 +8,6 @@ This project explores vehicle pricing patterns through data enrichment and stati
 
 - **Python** — Data processing, LLM-assisted enrichment, and statistical analysis
 - **Jupyter Notebooks** — Interactive exploration and visualization
-- **Google BigQuery** — Cloud data storage and querying
 
 ## Tech Stack
 
@@ -19,7 +18,6 @@ This project explores vehicle pricing patterns through data enrichment and stati
 | Data Processing | pandas, pydantic |
 | Analysis | seaborn, shap, statsmodels |
 | LLM | LM Studio (local inference) |
-| Cloud | Google BigQuery |
 | IDE | VS Code |
 
 ## Setup
@@ -89,5 +87,4 @@ Large CSV files are excluded from git. Re-run the enrichment pipeline to regener
 ## Notes
 
 - LLM enrichment requires LM Studio running locally
-- BigQuery integration needs `GOOGLE_APPLICATION_CREDENTIALS` or gcloud auth configured
 - Python 3.11 is pinned — use `uv python install 3.11` if needed
