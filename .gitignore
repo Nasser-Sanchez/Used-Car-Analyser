@@ -8,6 +8,7 @@
 # CSV files (exclude only carmax_USA.csv)
 *.csv
 !carmax_USA.csv
+!carmax_usa_enriched.csv
 
 # Compiled R files
 *.rdb
