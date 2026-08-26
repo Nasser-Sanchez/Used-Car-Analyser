@@ -15,7 +15,8 @@ A companion notebook (`notebooks/car_data_analysis.ipynb`) answers the question:
 - **Engineering specs dominate pricing:** SHAP analysis of an XGBoost model (R² = 0.973, RMSE = $2,424) shows **torque** is the #1 price predictor, followed by **mileage**, **year**, **horsepower**, and **acceleration**. What a car *does* matters more than its brand.
 - **Brand effects are secondary:** `make` and `model` features rank below reliability ratings and engineering specs. The "badge premium" exists but is smaller than commonly assumed.
 - **Depreciation:** A 50,000-mile increase correlates with roughly **30% lower price** (OLS log-linear estimate).
-- **Best value identification:** Pareto frontier filtering reduced 3,973 listings to 61 non-dominated options. TOPSIS multi-criteria ranking identified **Ford Mustang**, **Dodge Charger**, and **Toyota Highlander** as top value picks under $35k.
+- **Best value identification:** Pareto frontier filtering reduced 3,973 listings to 61 non-dominated options. TOPSIS multi-criteria ranking identified **Ford Mustang**, **Dodge Charger**, and **Toyota Highlander** as top value picks.
+- **LLM for data gathering:** Using AI for the data enrichment workflow reveals some inconsistencies, although most of the data is quite plausible.
 
 ### XGBoost Model
 
